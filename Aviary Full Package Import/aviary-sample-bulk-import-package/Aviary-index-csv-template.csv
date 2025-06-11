@@ -1,0 +1,5 @@
+﻿aviary ID,Media User Key,Sequence #,Language,Tile,Path,Public,Description
+,5683,1,English,OHMS Index,/aviary-sample-bulk-import-package/indexes/OHMS-Sample-001.xml,yes,Any Description
+,5685,1,English,OHMS Index,/aviary-sample-bulk-import-package/indexes/OHMS-Sample-002.xml,yes,Any Description
+,5684,1,English,Index 1,/aviary-sample-bulk-import-package/indexes/Index3.vtt,yes,Any Description
+,5681,1,Spanish,Index 1,/aviary-sample-bulk-import-package/indexes/Index3.vtt.txt,yes,Any Description

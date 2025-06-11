@@ -1,0 +1,4 @@
+Title,aviary ID,Resource User Key,Public,Sequence #,File Path,Description,Status
+The Atlantic Image,,1234,Yes,1,/aviary-sample-bulk-import-package/supplemental/supplemental_file.jpg,Testing JPG Image with bulk import package,yes
+Random Image ,,1234,No,2,/aviary-sample-bulk-import-package/supplemental/supplemental_file.png,Testing PNG Image with bulk import package,yes
+A PDF File,,1236,No,1,/aviary-sample-bulk-import-package/supplemental/supplemental_file.pdf,Testing PDF Image with bulk import package,yes

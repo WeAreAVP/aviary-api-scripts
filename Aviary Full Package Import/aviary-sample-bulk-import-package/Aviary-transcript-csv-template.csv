@@ -1,0 +1,3 @@
+﻿aviary ID,Media User Key,Sequence #,Language,Tile,Path,Public,Captions,Ignore Title,Description
+,5678,1,English,Transcript 1,/aviary-sample-bulk-import-package/transcripts/Transcript1.txt,yes,yes,yes,Any Description
+,5684,1,English,Transcript 2,/aviary-sample-bulk-import-package/transcripts/wildlife.txt.xml,no,no,no,Any Description
