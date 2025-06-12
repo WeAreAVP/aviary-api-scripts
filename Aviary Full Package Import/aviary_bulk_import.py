@@ -1,10 +1,10 @@
 ######################################
 # Steps to Run the Script
-# 1 - Update base_url to your organization url in line # 24
+# 1 - Update base_url to your organization url in line # 23
 # 2 - Update token to your user token in line # 24
 # 3 - Update collection_id for which you want to create a resources in line # 25
 # 4 - Update folder_path of file which you have this file a in line # 26
-# 5 - Update csv_path info according to your location from  line # 27 to line # 31
+# 5 - Update csv_path for each CSV file according to each file's location from  line # 27 to line # 31
 import datetime
 import requests
 import os
