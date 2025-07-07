@@ -25,7 +25,7 @@ base_url = 'https://weareavp.aviaryplatform.com/'
 def write_in_terminal(message):
     print(asctime() + ":Log - " + message)
 
-def upload_from_link(file, url, headers, resource_id, access, display_name, filename, sort_order):
+def upload_from_link(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360):
     params = {'collection_resource_id': resource_id,
     'access': access,
     'is_360': 'false',
@@ -33,6 +33,7 @@ def upload_from_link(file, url, headers, resource_id, access, display_name, file
     'filename': filename,
     'media_file_link': file,
     'sort_order': sort_order,
+    'is_360': is_360,
     }
     files = {"media_file_link": file}
     r = requests.post(url=url, files=files,params=params, headers=headers)
@@ -41,7 +42,7 @@ def upload_from_link(file, url, headers, resource_id, access, display_name, file
     return r
 
 
-def upload(file, url, headers, resource_id, access, display_name, filename, sort_order):
+def upload(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360):
     params = {'collection_resource_id': resource_id,
     'access': access,
     'is_360': 'false',
@@ -49,6 +50,7 @@ def upload(file, url, headers, resource_id, access, display_name, filename, sort
     'filename': filename,
     'media_file': 'presigned',
     'sort_order': sort_order,
+    'is_360': is_360.lower(),
     }
     files = {"media_file": 'presigned'}
     r = requests.post(url=url, files=files,params=params, headers=headers)
@@ -78,7 +80,7 @@ def authenticate_aviary():
 
 
 
-def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_order):
+def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_order, is_360):
 
     auth_response = authenticate_aviary()
     write_in_terminal("User authenticated.")
@@ -91,9 +93,9 @@ def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_ord
     print(f"Resource id --{resource_id}")
     url = f"{base_url}api/v1/media_files"
     if validators.url(src):
-        del_response = upload_from_link(src, url, headers, resource_id, access, display_name, filename, sort_order)
+        del_response = upload_from_link(src, url, headers, resource_id, access, display_name, filename, sort_order, is_360)
     else:
-        del_response = upload(src, url, headers, resource_id, access, display_name, filename, sort_order)
+        del_response = upload(src, url, headers, resource_id, access, display_name, filename, sort_order, is_360)
     write_in_terminal(f"Final response... {del_response.json()}")
 
     return del_response
@@ -109,6 +111,10 @@ def main():
         src = row["Path"]
         url = row["URL"]
         sort_order = row["Sequence #"]
+        is_360 = 'false'
+        if row["Is 360"]:
+            is_360 = row["Is 360"]
+
         display_name = row["Display Name"]
         filename = row["Filename"]
         access = row["Public"]
@@ -121,9 +127,9 @@ def main():
             start_time = datetime.datetime.now()
             write_in_terminal(f"Process started...{resource_id}")
             if  src.strip():
-                response = deliver_to_aviary(src,resource_id,access,display_name,filename,sort_order)
+                response = deliver_to_aviary(src,resource_id,access,display_name,filename,sort_order, is_360)
             elif  url.strip():
-                response = deliver_to_aviary(url,resource_id,access,display_name,filename,sort_order)
+                response = deliver_to_aviary(url,resource_id,access,display_name,filename,sort_order, is_360)
 
             write_in_terminal(f"Process finished...{resource_id}")
             end_time = datetime.datetime.now()
