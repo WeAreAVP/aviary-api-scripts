@@ -18,9 +18,7 @@ import threading
 import math
 
 base_url = 'https://weareavp.aviaryplatform.com/'
-# email = 'user@domain.com'
-# password = 'your-password'
-
+token = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
 def write_in_terminal(message):
     print(asctime() + ":Log - " + message)
@@ -57,6 +55,7 @@ def upload(file, url, headers, resource_id, access, display_name, filename, sort
     response = r.json()
     presigned_url = response['data']['presigned_url']
     content_path = os.path.abspath(file)
+
     with open(content_path, 'rb') as file:
         file_data = file.read()
     headers['Content-Type'] = 'text/plain'
@@ -67,28 +66,12 @@ def upload(file, url, headers, resource_id, access, display_name, filename, sort
     write_in_terminal(f"Response....{r}")
     return r
 
-def authenticate_aviary():
-    # URL for API Docs: https://www.aviaryplatform.com/api/v1/documentation
-    url = f"{base_url}api/v1/auth/sign_in"
-
-    payload={'email': email,
-    'password': password}
-    files=[]
-    r = requests.post(url, headers={}, data=payload, files=files)
-
-    return r
-
 
 
 def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_order, is_360):
 
-    auth_response = authenticate_aviary()
-    write_in_terminal("User authenticated.")
-    print(auth_response.headers)
-
-    headers = {'access-token': auth_response.headers['access-token'],
-            'uid': auth_response.headers['uid'],
-            'client': auth_response.headers['client']
+    headers = {
+        "Authorization": f"Bearer {token}",
     }
     print(f"Resource id --{resource_id}")
     url = f"{base_url}api/v1/media_files"
