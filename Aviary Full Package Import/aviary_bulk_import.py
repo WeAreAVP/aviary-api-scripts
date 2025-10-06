@@ -53,6 +53,37 @@ def process_resource(resource, keys, septater=";;", pair_separator= "|", system_
             data[key] = metadata
     return data
 
+def process_location(location_text):
+    """
+    Process location field with geolocation format.
+    Format: GPS_COORDS::ZOOM::DESCRIPTION
+    Multiple locations separated by |
+    Example: 39.0119,-95.6789::15::Kansas Location|37.7749,-122.4194::13::San Francisco
+    """
+    if not location_text or location_text.strip() == '':
+        return []
+    
+    locations = []
+    location_pairs = location_text.split('|')
+    
+    for location_pair in location_pairs:
+        parts = location_pair.split('::')
+        if len(parts) >= 1:
+            gps = parts[0].strip()
+            zoom = parts[1].strip() if len(parts) > 1 else '17'
+            description = parts[2].strip() if len(parts) > 2 else 'GPS Location'
+            
+            locations.append({
+                'vocabulary': '',
+                'value': {
+                    'gps': gps,
+                    'zoom': zoom,
+                    'description': description
+                }
+            })
+    
+    return locations
+
 def create_resources():
     with open(resource_csv_path, 'rt', encoding='utf-8-sig', errors='ignore') as resource_csv_file:
         resource_csv_reader = csv.DictReader(resource_csv_file)
@@ -76,6 +107,11 @@ def create_resources():
                 data["metadata"] = {}
                 data["metadata"] = data["metadata"]|process_resource(resource,['Description','Date','Agent','Coverage','Language','Identifier','Format','Type','Subject','Relation','Source','Publisher','Rights Statement','Keyword','Source Metadata URI'])
                 data["metadata"] = data["metadata"]|process_resource(resource,['Preferred Citation'],',')
+                
+                # Process Location field with geolocation format
+                if resource.get("Location") and resource["Location"].strip():
+                    data["metadata"]["Location"] = process_location(resource["Location"])
+                
                 response = requests.post(url, headers=headers, json=data)
                 info = response.json()
                 if "error" in info:
@@ -87,13 +123,13 @@ def create_resources():
                 print(f"")
     resource_csv_file.close()
 
-def upload_from_path(file, url, headers, resource_id, access,display_name, filename, sort_order, is_360, thumbnail_path):
+def upload_from_path(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360, thumbnail_path):
     
     params = {'collection_resource_id': resource_id,
     'access': access,
     'is_360': is_360,
     'media_file': 'presigned',
-    'display_name': display_name,
+    'display_name': display_name if display_name else filename,
     "thumbnail_path": thumbnail_path,
     'filename': filename,
     'sort_order': sort_order,
@@ -116,7 +152,7 @@ def upload_from_link(file, url, headers, resource_id, access, display_name, file
     params = {'collection_resource_id': resource_id,
     'access': access,
     'is_360': is_360,
-    'display_name': display_name,
+    'display_name': display_name if display_name else filename,
     'filename': filename,
     'sort_order': sort_order,
     "thumbnail_path": thumbnail_path,
@@ -128,10 +164,11 @@ def upload_from_link(file, url, headers, resource_id, access, display_name, file
     r = requests.post(url=url, files=files,json=params, headers=headers)
     return r.json()
 
-def upload_from_embed(file, url, headers, resource_id, access, sort_order, is_360, source, target_domain, thumbnail_path, metadata):
+def upload_from_embed(file, url, headers, resource_id, access, display_name, sort_order, is_360, source, target_domain, thumbnail_path, metadata):
     params = {'collection_resource_id': resource_id,
     'access': access,
     'is_360': is_360,
+    'display_name': display_name if display_name else f"{source} Embed",
     'sort_order': sort_order,
     'target_domain': target_domain,
     "media_embed_code": file,
@@ -181,8 +218,14 @@ def create_media(resource_id,resource_user_key):
                 sort_order = media["Sequence #"]
                 is_3d  = 'false' if media["360 Video"] == "no" else 'true'
                 thumbnail_path = folder_path+media["Embed Source"]
+                
+                # Get display name from CSV or use filename as fallback
+                display_name = media.get("Display Name", "").strip()
+                
                 if validators.url(media["URL"]):
-                    display_name = filename = os.path.basename(urlparse(media["URL"]).path)
+                    filename = os.path.basename(urlparse(media["URL"]).path)
+                    if not display_name:
+                        display_name = filename
                     media_response = upload_from_link(media["URL"], url, headers, resource_id, access, display_name, filename, sort_order, is_3d, thumbnail_path, metadata)
                 elif media["Embed Code"]:
                     if media["Embed Code"].startswith('<iframe'):
@@ -191,10 +234,12 @@ def create_media(resource_id,resource_user_key):
                             media["URL"] = url_match.group(1)
                     else:
                         media["URL"] = media["Embed Code"]
-                    media_response = upload_from_embed(media["Embed Code"] , url, headers, resource_id, access, sort_order, is_3d,  media["Embed Source"].title(),  media["Target Domain"], thumbnail_path, metadata)
+                    media_response = upload_from_embed(media["Embed Code"], url, headers, resource_id, access, display_name, sort_order, is_3d, media["Embed Source"].title(), media["Target Domain"], thumbnail_path, metadata)
                 else:
                     src = folder_path+media["Path"]
-                    display_name = filename = os.path.basename(src)
+                    filename = os.path.basename(src)
+                    if not display_name:
+                        display_name = filename
                     media_response = upload_from_path(src, url, headers, resource_id, access, display_name, filename, sort_order, is_3d, thumbnail_path)
                     print(f"Media Metadata {resource_user_key} Started")
                     metadata_url = f"{url}/{media_response['data']['id']}"
