@@ -1,5 +1,5 @@
-aviary ID,Media User Key,Resource User Key,Path,URL,Embed Code,Target Domain,Filename,Display Name,Sequence #,Public,Media Thumbnail URL,Media Thumbnail Path,Is 360
-355,,,/Users/razasaleem/Desktop/workspace/cybernest/aviary_script/sample-4.mp4,,,,EmmaTest.mp4,Peloton Bike Workout,1,yes,,,true
+aviary ID,Media User Key,Resource User Key,Path,URL,Embed Code,Target Domain,Filename,Display Name,Sequence #,Public,Media Thumbnail URL,Media Thumbnail Path,Is 360,,Media Staging ID
+355,,,,,,,EmmaTest.mp4,Peloton Bike Workout,1,yes,,,true,105
 353,,,/Users/razasaleem/Desktop/workspace/cybernest/aviary_script/4.06MB-MP4.mp4,,,,Hilton_Smith_2-21-22.mp4,Hilton Smith Session,1,yes,,,
 349,,,/Users/razasaleem/Desktop/workspace/cybernest/aviary_script/dwsamplemp4720p.mp4,,,,Jonathan Manton - Intro_to_OHAM.mp4,Yale OHAM Session,1,yes,,,true
 350,,,/Users/razasaleem/Desktop/workspace/cybernest/aviary_script/sample-5s.mp4,,,,David Martinelli - cleth_201802_amvt001_dc(transcoded).mp4,David Martinelli Interview,1,yes,,,true

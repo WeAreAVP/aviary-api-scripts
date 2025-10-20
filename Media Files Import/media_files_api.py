@@ -23,6 +23,21 @@ token = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 def write_in_terminal(message):
     print(asctime() + ":Log - " + message)
 
+def upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, filename, sort_order, is_360):
+    params = {'collection_resource_id': resource_id,
+    'access': access,
+    'is_360': 'false',
+    'display_name': display_name,
+    'filename': filename,
+    'media_staging_id': media_staging_id,
+    'sort_order': sort_order,
+    'is_360': is_360,
+    }
+    r = requests.post(url=url, files=[],params=params, headers=headers)
+    response = r.json()
+    write_in_terminal(f"Response....{response}")
+    return r
+
 def upload_from_link(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360):
     params = {'collection_resource_id': resource_id,
     'access': access,
@@ -68,14 +83,15 @@ def upload(file, url, headers, resource_id, access, display_name, filename, sort
 
 
 
-def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_order, is_360):
-
+def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_order, is_360, media_staging_id = ''):
     headers = {
         "Authorization": f"Bearer {token}",
     }
     print(f"Resource id --{resource_id}")
     url = f"{base_url}api/v1/media_files"
-    if validators.url(src):
+    if media_staging_id:
+        del_response = upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, filename, sort_order, is_360)
+    elif validators.url(src):
         del_response = upload_from_link(src, url, headers, resource_id, access, display_name, filename, sort_order, is_360)
     else:
         del_response = upload(src, url, headers, resource_id, access, display_name, filename, sort_order, is_360)
@@ -101,6 +117,7 @@ def main():
         display_name = row["Display Name"]
         filename = row["Filename"]
         access = row["Public"]
+        media_staging_id = row["Media Staging ID"]
         if access == "yes":
             access = 'true'
         else:
@@ -113,6 +130,8 @@ def main():
                 response = deliver_to_aviary(src,resource_id,access,display_name,filename,sort_order, is_360)
             elif  url.strip():
                 response = deliver_to_aviary(url,resource_id,access,display_name,filename,sort_order, is_360)
+            elif media_staging_id:
+                response = deliver_to_aviary('',resource_id,access,display_name,filename,sort_order, is_360, media_staging_id)
 
             write_in_terminal(f"Process finished...{resource_id}")
             end_time = datetime.datetime.now()
