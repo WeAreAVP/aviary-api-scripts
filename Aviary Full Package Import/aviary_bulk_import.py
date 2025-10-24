@@ -234,7 +234,7 @@ def create_media(resource_id,resource_user_key):
                 # Get display name from CSV or use filename as fallback
                 display_name = media.get("Display Name", "").strip()
                 if media_staging_id:
-                    media_response = upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, filename, sort_order, is_3d)
+                    media_response = upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, '', sort_order, is_3d)
                 elif validators.url(media["URL"]):
                     filename = os.path.basename(urlparse(media["URL"]).path)
                     if not display_name:
