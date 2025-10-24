@@ -148,6 +148,18 @@ def upload_from_path(file, url, headers, resource_id, access, display_name, file
     requests.get(complete_url, headers=headers, data={})
     return r.json()
 
+def upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, filename, sort_order, is_360):
+    params = {'collection_resource_id': resource_id,
+    'access': access,
+    'is_360': 'false',
+    'display_name': display_name,
+    'filename': filename,
+    'media_staging_id': media_staging_id,
+    'sort_order': sort_order,
+    'is_360': is_360,
+    }
+    r = requests.post(url=url, files=[],params=params, headers=headers)
+    return r.json()
 def upload_from_link(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360, thumbnail_path, metadata):
     params = {'collection_resource_id': resource_id,
     'access': access,
@@ -218,11 +230,12 @@ def create_media(resource_id,resource_user_key):
                 sort_order = media["Sequence #"]
                 is_3d  = 'false' if media["360 Video"] == "no" else 'true'
                 thumbnail_path = folder_path+media["Embed Source"]
-                
+                media_staging_id = media["Media Staging ID"]
                 # Get display name from CSV or use filename as fallback
                 display_name = media.get("Display Name", "").strip()
-                
-                if validators.url(media["URL"]):
+                if media_staging_id:
+                    media_response = upload_from_id(media_staging_id, url, headers, resource_id, access, display_name, filename, sort_order, is_3d)
+                elif validators.url(media["URL"]):
                     filename = os.path.basename(urlparse(media["URL"]).path)
                     if not display_name:
                         display_name = filename

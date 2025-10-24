@@ -17,8 +17,8 @@ import mimetypes
 import threading
 import math
 
-base_url = 'https://weareavp.aviaryplatform.com/'
-token = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+base_url = 'https://weareavp.odin.aviaryplatform.com/'
+token = '675718f737650a905b3e2fa19c06c398'
 
 def write_in_terminal(message):
     print(asctime() + ":Log - " + message)
@@ -101,7 +101,7 @@ def deliver_to_aviary(src, resource_id, access, display_name, filename, sort_ord
 
 
 def main():
-    csv_path = '/Users/weareavp/aviary-api-scripts/PythonTestingMedia.csv'
+    csv_path = '/Users/razasaleem/Desktop/workspace/cybernest/aviary-api-scripts/Media Files Import/PythonTestingMedia.csv'
     csv_file = open(csv_path, 'rt', encoding='utf-8')
     csv_reader = csv.DictReader(csv_file)
     
