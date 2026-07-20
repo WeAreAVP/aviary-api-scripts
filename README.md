@@ -35,7 +35,7 @@ Each script includes inline comments to guide configuration.
 
 ## Example Scripts
 
-- `Aviary Full Package Import` – Upload complete Aviary packages, including resources, media files, indexes, transcripts, and supplemental files to an existing collection. The process replicates the normal Aviary Package Import process available with the Aviary web user interface (without requiring the user to zip the package and upload it). [See more information about the Aviary Package Import here.](https://coda.aviaryplatform.com/bulk-importing-248)  
+- `Aviary Full Package Import` – Upload complete Aviary packages, including resources, media files, indexes, transcripts, and supplemental files, to an existing collection. The process replicates the normal Aviary Package Import process available with the Aviary web user interface (without requiring the user to zip the package and upload it). Resources and media files are required; indexes, transcripts, and supplemental files are each optional and can be enabled independently. Every run writes a CSV log of the results (one row per resource, with counts of everything imported and any errors), and re-running the script skips resources that already completed successfully rather than duplicating them. [See more information about the Aviary Package Import here.](https://coda.aviaryplatform.com/bulk-importing-248)
 - `Media Files Import` – Upload media files to attach to existing resources.
 - `Transcript Download` – Batch export and download all formats of transcripts for media files listed on a CSV.
 
