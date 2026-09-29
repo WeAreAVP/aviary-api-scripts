@@ -394,12 +394,8 @@ def create_resources():
     resource_csv_file.close()
 
 
-# Nouman: multipart (chunked) upload settings. Files larger than
-# MULTIPART_THRESHOLD are split into PART_SIZE chunks, and each chunk is PUT
-# straight to Wasabi with its own presigned URL, so files over 5 GB work and
-# memory use stays at about one chunk. Smaller files use a single presigned
-# PUT. Aviary accepts part sizes from 5 MB to 5 GB and files up to 25 GB.
-# Set MULTIPART_UPLOAD = False to always use the single-PUT upload (max 5 GB).
+# Files larger than MULTIPART_THRESHOLD are uploaded in PART_SIZE chunks (5 MB - 5 GB, max file 25 GB).
+# Set MULTIPART_UPLOAD = False to always use a single PUT (max 5 GB).
 MULTIPART_UPLOAD = True
 MULTIPART_THRESHOLD = 100 * 1024 * 1024
 PART_SIZE = 100 * 1024 * 1024
@@ -407,13 +403,7 @@ PART_RETRIES = 3
 
 
 def put_with_retries(url, file_path, label, offset=0, length=None):
-    """Nouman: PUT bytes of file_path to a presigned URL, retrying on failure.
-
-    Sends length bytes starting at offset, or streams the whole file from disk
-    when length is None. Retried PART_RETRIES times with backoff. No
-    Authorization header is sent: the URL is presigned, and sending the
-    Aviary token to Wasabi would leak it.
-    """
+    # No Authorization header: the URL is presigned and the Aviary token must not be sent to Wasabi.
     for attempt in range(1, PART_RETRIES + 1):
         try:
             with open(file_path, 'rb') as fh:
@@ -431,12 +421,6 @@ def put_with_retries(url, file_path, label, offset=0, length=None):
 
 
 def upload_parts(file_path, multipart_upload):
-    """Nouman: PUT each chunk of the file to its presigned part URL.
-
-    Part N is the bytes [(N-1) * part_size, N * part_size) of the file; the
-    last part can be smaller. A failed part is retried by itself instead of
-    restarting the whole file.
-    """
     part_size = int(multipart_upload['part_size'])
     parts = sorted(multipart_upload['parts'], key=lambda p: int(p['part_number']))
     for part in parts:
@@ -446,17 +430,6 @@ def upload_parts(file_path, multipart_upload):
 
 
 def upload_to_presigned(file_path, url, headers, params):
-    """Nouman: create the media file, upload the bytes to Wasabi, and complete.
-
-    For files larger than MULTIPART_THRESHOLD (and MULTIPART_UPLOAD on) the
-    create request also sends multipart=true, file_size and part_size. Aviary
-    then returns multipart_upload (upload_id, part_size, parts_count, and one
-    url per part) instead of presigned_url, and /complete is called with the
-    upload_id so Aviary joins the parts. Smaller files, or a server that
-    returns no multipart_upload (an Aviary release without multipart
-    support), use a single PUT. Returns the create response; raises if any
-    step fails (before, failures were ignored).
-    """
     content_path = os.path.abspath(file_path)
     file_size = os.path.getsize(content_path)
     params = dict(params)
@@ -474,8 +447,6 @@ def upload_to_presigned(file_path, url, headers, params):
         upload_parts(content_path, multipart_upload)
         complete_params = {'upload_id': multipart_upload['upload_id'], 'parts_count': multipart_upload['parts_count']}
     else:
-        # Single PUT (max 5 GB), streamed from disk rather than read fully
-        # into memory.
         put_with_retries(data['presigned_url'], content_path, os.path.basename(content_path))
         complete_params = {}
 
@@ -497,7 +468,6 @@ def upload_from_path(file, url, headers, resource_id, access, display_name, file
               'filename': filename,
               'sort_order': sort_order,
               }
-    # Nouman: now uses the multipart presigned upload (see upload_to_presigned).
     r = upload_to_presigned(file, url, headers, params)
     return r.json()
 
