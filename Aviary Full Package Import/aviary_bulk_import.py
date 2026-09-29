@@ -394,60 +394,74 @@ def create_resources():
     resource_csv_file.close()
 
 
-# Nouman: multipart (chunked) upload settings. Local files are split into
-# PART_SIZE chunks, and each chunk is PUT straight to Wasabi with its own
-# presigned URL, so files over 5 GB work and memory use stays at about one
-# chunk. Aviary accepts part sizes from 5 MB to 5 GB and files up to 25 GB.
-# Set MULTIPART_UPLOAD = False to use the old single-PUT upload.
+# Nouman: multipart (chunked) upload settings. Files larger than
+# MULTIPART_THRESHOLD are split into PART_SIZE chunks, and each chunk is PUT
+# straight to Wasabi with its own presigned URL, so files over 5 GB work and
+# memory use stays at about one chunk. Smaller files use a single presigned
+# PUT. Aviary accepts part sizes from 5 MB to 5 GB and files up to 25 GB.
+# Set MULTIPART_UPLOAD = False to always use the single-PUT upload (max 5 GB).
 MULTIPART_UPLOAD = True
+MULTIPART_THRESHOLD = 100 * 1024 * 1024
 PART_SIZE = 100 * 1024 * 1024
 PART_RETRIES = 3
+
+
+def put_with_retries(url, file_path, label, offset=0, length=None):
+    """Nouman: PUT bytes of file_path to a presigned URL, retrying on failure.
+
+    Sends length bytes starting at offset, or streams the whole file from disk
+    when length is None. Retried PART_RETRIES times with backoff. No
+    Authorization header is sent: the URL is presigned, and sending the
+    Aviary token to Wasabi would leak it.
+    """
+    for attempt in range(1, PART_RETRIES + 1):
+        try:
+            with open(file_path, 'rb') as fh:
+                fh.seek(offset)
+                body = fh if length is None else fh.read(length)
+                resp = requests.put(url, data=body, timeout=(30, 3600))
+            if 200 <= resp.status_code < 300:
+                return
+            error = f"HTTP {resp.status_code}: {resp.text[:300]}"
+        except requests.exceptions.RequestException as e:
+            error = str(e)
+        if attempt == PART_RETRIES:
+            raise RuntimeError(f"{label} upload failed: {error}")
+        time.sleep(2 ** attempt)
 
 
 def upload_parts(file_path, multipart_upload):
     """Nouman: PUT each chunk of the file to its presigned part URL.
 
     Part N is the bytes [(N-1) * part_size, N * part_size) of the file; the
-    last part can be smaller. A failed part is retried by itself
-    (PART_RETRIES times) instead of restarting the whole file. No
-    Authorization header is sent: the part URLs are presigned, and sending
-    the Aviary token to Wasabi would leak it.
+    last part can be smaller. A failed part is retried by itself instead of
+    restarting the whole file.
     """
     part_size = int(multipart_upload['part_size'])
     parts = sorted(multipart_upload['parts'], key=lambda p: int(p['part_number']))
-    with open(os.path.abspath(file_path), 'rb') as fh:
-        for part in parts:
-            number = int(part['part_number'])
-            for attempt in range(1, PART_RETRIES + 1):
-                fh.seek((number - 1) * part_size)
-                try:
-                    resp = requests.put(part['url'], data=fh.read(part_size), timeout=(30, 3600))
-                    if 200 <= resp.status_code < 300:
-                        break
-                    error = f"HTTP {resp.status_code}: {resp.text[:300]}"
-                except requests.exceptions.RequestException as e:
-                    error = str(e)
-                if attempt == PART_RETRIES:
-                    raise RuntimeError(f"part {number} upload failed: {error}")
-                time.sleep(2 ** attempt)
-            print(f"part {number}/{len(parts)} uploaded")
+    for part in parts:
+        number = int(part['part_number'])
+        put_with_retries(part['url'], file_path, f"part {number}", (number - 1) * part_size, part_size)
+        print(f"part {number}/{len(parts)} uploaded")
 
 
 def upload_to_presigned(file_path, url, headers, params):
     """Nouman: create the media file, upload the bytes to Wasabi, and complete.
 
-    With MULTIPART_UPLOAD the create request also sends multipart=true,
-    file_size and part_size. Aviary then returns multipart_upload (upload_id,
-    part_size, parts_count, and one url per part) instead of presigned_url,
-    and /complete is called with the upload_id so Aviary joins the parts. If
-    the server returns no multipart_upload (an Aviary release without
-    multipart support), the old single PUT is used. Returns the create
-    response; raises if any step fails (before, failures were ignored).
+    For files larger than MULTIPART_THRESHOLD (and MULTIPART_UPLOAD on) the
+    create request also sends multipart=true, file_size and part_size. Aviary
+    then returns multipart_upload (upload_id, part_size, parts_count, and one
+    url per part) instead of presigned_url, and /complete is called with the
+    upload_id so Aviary joins the parts. Smaller files, or a server that
+    returns no multipart_upload (an Aviary release without multipart
+    support), use a single PUT. Returns the create response; raises if any
+    step fails (before, failures were ignored).
     """
     content_path = os.path.abspath(file_path)
+    file_size = os.path.getsize(content_path)
     params = dict(params)
-    if MULTIPART_UPLOAD:
-        params.update({'multipart': 'true', 'file_size': os.path.getsize(content_path), 'part_size': PART_SIZE})
+    if MULTIPART_UPLOAD and file_size > MULTIPART_THRESHOLD:
+        params.update({'multipart': 'true', 'file_size': file_size, 'part_size': PART_SIZE})
     r = requests.post(url=url, files={"media_file": 'presigned'}, params=params, headers=headers)
     response = r.json()
     if response.get('errors') or response.get('error'):
@@ -460,10 +474,9 @@ def upload_to_presigned(file_path, url, headers, params):
         upload_parts(content_path, multipart_upload)
         complete_params = {'upload_id': multipart_upload['upload_id'], 'parts_count': multipart_upload['parts_count']}
     else:
-        # Old single PUT (max 5 GB). The file is streamed from disk, not read
-        # fully into memory, and the Aviary token is not sent to Wasabi.
-        with open(content_path, 'rb') as fh:
-            requests.put(data['presigned_url'], data=fh).raise_for_status()
+        # Single PUT (max 5 GB), streamed from disk rather than read fully
+        # into memory.
+        put_with_retries(data['presigned_url'], content_path, os.path.basename(content_path))
         complete_params = {}
 
     complete_url = f"{base_url}api/v1/media_files/{data['id']}/complete"

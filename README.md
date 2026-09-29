@@ -43,7 +43,7 @@ Each script includes inline comments to guide configuration.
 
 ### Large media files (chunked upload)
 
-`Media Files Import` and `Aviary Full Package Import` upload local media files straight to Aviary's storage as a multipart (chunked) upload. Each file is sent in 100 MB chunks (`PART_SIZE`), and each chunk is retried on its own if it fails, so files up to 25 GB upload without loading the whole file into memory. Set `MULTIPART_UPLOAD = False` in the script to use the older single-request upload (max 5 GB per file).
+`Media Files Import` and `Aviary Full Package Import` upload local media files straight to Aviary's storage. Files up to 100 MB (`MULTIPART_THRESHOLD`) are sent in a single request. Larger files are sent as a multipart (chunked) upload in 100 MB chunks (`PART_SIZE`), and each chunk is retried on its own if it fails, so files up to 25 GB upload without loading the whole file into memory. Set `MULTIPART_UPLOAD = False` in the script to always use the single-request upload (max 5 GB per file).
 
 ## Documentation
 
