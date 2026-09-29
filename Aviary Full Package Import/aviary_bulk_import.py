@@ -147,6 +147,7 @@ import csv
 import validators
 import mimetypes
 import re
+import time
 from urllib.parse import urlparse
 
 # ==============================================================================
@@ -393,6 +394,69 @@ def create_resources():
     resource_csv_file.close()
 
 
+# Files larger than MULTIPART_THRESHOLD are uploaded in PART_SIZE chunks (5 MB - 5 GB, max file 25 GB).
+# Set MULTIPART_UPLOAD = False to always use a single PUT (max 5 GB).
+MULTIPART_UPLOAD = True
+MULTIPART_THRESHOLD = 100 * 1024 * 1024
+PART_SIZE = 100 * 1024 * 1024
+PART_RETRIES = 3
+
+
+def put_with_retries(url, file_path, label, offset=0, length=None):
+    # No Authorization header: the URL is presigned and the Aviary token must not be sent to Wasabi.
+    for attempt in range(1, PART_RETRIES + 1):
+        try:
+            with open(file_path, 'rb') as fh:
+                fh.seek(offset)
+                body = fh if length is None else fh.read(length)
+                resp = requests.put(url, data=body, timeout=(30, 3600))
+            if 200 <= resp.status_code < 300:
+                return
+            error = f"HTTP {resp.status_code}: {resp.text[:300]}"
+        except requests.exceptions.RequestException as e:
+            error = str(e)
+        if attempt == PART_RETRIES:
+            raise RuntimeError(f"{label} upload failed: {error}")
+        time.sleep(2 ** attempt)
+
+
+def upload_parts(file_path, multipart_upload):
+    part_size = int(multipart_upload['part_size'])
+    parts = sorted(multipart_upload['parts'], key=lambda p: int(p['part_number']))
+    for part in parts:
+        number = int(part['part_number'])
+        put_with_retries(part['url'], file_path, f"part {number}", (number - 1) * part_size, part_size)
+        print(f"part {number}/{len(parts)} uploaded")
+
+
+def upload_to_presigned(file_path, url, headers, params):
+    content_path = os.path.abspath(file_path)
+    file_size = os.path.getsize(content_path)
+    params = dict(params)
+    if MULTIPART_UPLOAD and file_size > MULTIPART_THRESHOLD:
+        params.update({'multipart': 'true', 'file_size': file_size, 'part_size': PART_SIZE})
+    r = requests.post(url=url, files={"media_file": 'presigned'}, params=params, headers=headers)
+    response = r.json()
+    if response.get('errors') or response.get('error'):
+        raise RuntimeError(f"Media create failed: {response.get('errors') or response.get('error')}")
+    data = response['data']
+
+    multipart_upload = data.get('multipart_upload')
+    if multipart_upload:
+        print(f"Uploading {os.path.basename(content_path)} in {multipart_upload['parts_count']} part(s)")
+        upload_parts(content_path, multipart_upload)
+        complete_params = {'upload_id': multipart_upload['upload_id'], 'parts_count': multipart_upload['parts_count']}
+    else:
+        put_with_retries(data['presigned_url'], content_path, os.path.basename(content_path))
+        complete_params = {}
+
+    complete_url = f"{base_url}api/v1/media_files/{data['id']}/complete"
+    complete = requests.get(complete_url, headers=headers, params=complete_params).json()
+    if complete.get('errors'):
+        raise RuntimeError(f"Media complete failed: {complete['errors']}")
+    return r
+
+
 def upload_from_path(file, url, headers, resource_id, access, display_name, filename, sort_order, is_360, thumbnail_path):
 
     params = {'collection_resource_id': resource_id,
@@ -404,18 +468,7 @@ def upload_from_path(file, url, headers, resource_id, access, display_name, file
               'filename': filename,
               'sort_order': sort_order,
               }
-    files = {"media_file": 'presigned'}
-    r = requests.post(url=url, files=files, params=params, headers=headers)
-    response = r.json()
-    presigned_url = response['data']['presigned_url']
-    content_path = os.path.abspath(file)
-    with open(content_path, 'rb') as file:
-        file_data = file.read()
-    headers['Content-Type'] = 'text/plain'
-    requests.put(presigned_url, headers=headers, data=file_data)
-    complete_url = f"{base_url}api/v1/media_files/{response['data']['id']}/complete"
-
-    requests.get(complete_url, headers=headers, data={})
+    r = upload_to_presigned(file, url, headers, params)
     return r.json()
 
 
